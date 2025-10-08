@@ -9,24 +9,26 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
+    "@clerk/clerk-react": "^5.51.0",
+    "@clerk/nextjs": "^6.33.3",
+    "framer-motion": "^11",
     "next": "15.5.4",
-    "framer-motion": "^11"
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
   },
   "optionalDependencies": {
-    "better-sqlite3": "^9"
+    "better-sqlite3": "^9.6.0"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "^7",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/better-sqlite3": "^7",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
-    "@eslint/eslintrc": "^3"
+    "tailwindcss": "^4",
+    "typescript": "^5"
   }
 }
