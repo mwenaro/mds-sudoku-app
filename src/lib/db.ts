@@ -25,11 +25,13 @@ export { User, Game };
 export const createUser = async (userData: UserType) => {
   const user = new User(userData);
   await user.save();
+  return user;
 };
 
 export const createGame = async (gameData: GameType) => {
   const game = new Game(gameData);
   await game.save();
+  return game;
 };
 
 
