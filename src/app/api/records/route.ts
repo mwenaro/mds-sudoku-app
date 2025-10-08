@@ -1,53 +1,72 @@
 import { NextRequest } from "next/server";
-import db from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
+import { createGame, getGames } from '@/lib/db';
+import { Game as GameModel } from '@/lib/db';
+import { GameType } from '@/lib/types';
+import connectDB from '@/lib/db';
+
+// Connect to the database
+
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-
 export async function GET() {
   try {
+    await connectDB();
     const { userId } = await auth();
-    let rows;
+    let games;
     if (userId) {
-      rows = db.prepare(
-        `SELECT id, name, difficulty, time_seconds, mistakes, created_at, user_id, user_name, user_email FROM records WHERE user_id = ? ORDER BY created_at DESC LIMIT 100`
-      ).all(userId);
+      games = await getGames(userId);
     } else {
-      rows = db.prepare(
-        `SELECT id, name, difficulty, time_seconds, mistakes, created_at, user_id, user_name, user_email FROM records ORDER BY created_at DESC LIMIT 100`
-      ).all();
+      games = await getGames();
     }
-    return Response.json({ ok: true, data: rows }, { status: 200 });
-  } catch (err) {
-    console.error("GET /api/records error", err);
-    return Response.json({ ok: false, error: "Failed to fetch records" }, { status: 500 });
+
+    // Helper to map level number to difficulty string
+    function levelToDifficulty(level: number): string {
+      switch (level) {
+        case 1: return "easy";
+        case 2: return "medium";
+        case 3: return "difficult";
+        case 4: return "expert";
+        case 5: return "nightmare";
+        default: return "unknown";
+      }
+    }
+
+    // Map games to leaderboard row format
+    const data = games.map((g, idx) => ({
+      id: idx + 1,
+      name: g.userId || "-",
+      difficulty: levelToDifficulty(g.level),
+      time_seconds: g.timeTaken,
+      mistakes: g.mistakes ?? 0, // fallback if not present
+      created_at: g.date || g.createdAt || new Date(),
+      user_id: g.userId || null,
+      user_name: g.userId || null,
+      user_email: null,
+    }));
+
+    return new Response(JSON.stringify({ ok: true, data }), { status: 200 });
+  } catch (error:any) {
+    console.log("Error is ",error.message);
+    return new Response(JSON.stringify({ error: 'Failed to fetch records' }), { status: 500 });
   }
 }
 
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
+  const { userId } = await auth();
+    await connectDB();
+  const gameData: GameType = await request.json(); // Updated to use GameType
+  if (!userId) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+  }
   try {
-    const { userId, sessionClaims } = await auth();
-    if (!userId) {
-      return Response.json({ ok: false, error: "Authentication required" }, { status: 401 });
-    }
-    const body = await req.json();
-    const { name, difficulty, time_seconds, mistakes } = body ?? {};
-    if (!name || !difficulty || typeof time_seconds !== "number" || typeof mistakes !== "number") {
-      return Response.json({ ok: false, error: "Invalid payload" }, { status: 400 });
-    }
-    // Clerk user info
-    const user_name = sessionClaims?.name || null;
-    const user_email = sessionClaims?.email || null;
-    const stmt = db.prepare(
-      `INSERT INTO records (name, difficulty, time_seconds, mistakes, user_id, user_name, user_email) VALUES (?, ?, ?, ?, ?, ?, ?)`
-    );
-    const info = stmt.run(name, difficulty, time_seconds, mistakes, userId, user_name, user_email);
-    return Response.json({ ok: true, id: info.lastInsertRowid }, { status: 201 });
-  } catch (err) {
-    console.error("POST /api/records error", err);
-    return Response.json({ ok: false, error: "Failed to save record" }, { status: 500 });
+    const game = await createGame({ ...gameData, userId });
+    return new Response(JSON.stringify(game), { status: 201 });
+  } catch (error) {
+    console.log(error);
+    return new Response(JSON.stringify({ error: 'Failed to create game' }), { status: 500 });
   }
 }
