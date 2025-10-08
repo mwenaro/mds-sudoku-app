@@ -16,7 +16,8 @@ type Props = {
 export default function SudokuBoard({ initial, solution, onComplete }: Props) {
   const [grid, setGrid] = useState<Grid>(() => initial.map((r) => r.slice()));
   const [selected, setSelected] = useState<[number, number] | null>(null);
-  const [mistakes, setMistakes] = useState(0);
+  // Track total mistakes made (not just current mistakes)
+  const [mistakeCount, setMistakeCount] = useState(0);
   const [tip, setTip] = useState<ReturnType<typeof computeTip> | null>(null);
   // Timer state
   const [elapsed, setElapsed] = useState(0); // seconds for display
@@ -32,8 +33,8 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
   useEffect(() => {
     setGrid(initial.map((r) => r.slice()));
     setSelected(null);
-    setMistakes(0);
     setTip(null);
+    setMistakeCount(0);
     // reset timer
     setElapsed(0);
     setBaseMs(0);
@@ -60,13 +61,14 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
       const now = Date.now();
       const ms = baseMs + (running && lastStartAt ? now - lastStartAt : 0);
       const timeSeconds = Math.round(ms / 1000);
-      onComplete?.({ mistakes, timeSeconds });
+      // Count mistakes at completion
+  onComplete?.({ mistakes: mistakeCount, timeSeconds });
       // auto stop on completion
       setRunning(false);
       setBaseMs(ms);
       setLastStartAt(null);
     }
-  }, [grid, solution, baseMs, running, lastStartAt, mistakes, onComplete]);
+  }, [grid, solution, baseMs, running, lastStartAt, onComplete, isGiven]);
 
   // timer
   useEffect(() => {
@@ -122,9 +124,18 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
     }
     setGrid((g) => {
       const next = g.map((row) => row.slice());
+      const prevVal = g[r][c];
       if (val === 0) next[r][c] = 0;
       else next[r][c] = val;
-      if (val !== 0 && solution[r][c] !== val) setMistakes((m) => m + 1);
+      // Only increment mistakeCount if this input is a new mistake
+      if (
+        val !== 0 &&
+        val !== solution[r][c] &&
+        prevVal !== val && // only if value actually changed
+        solution[r][c] !== prevVal // only if previous value was not already a mistake
+      ) {
+        setMistakeCount((count) => count + 1);
+      }
       // clear notes when value placed
       if (val !== 0) {
         setNotes((old) => {
@@ -178,6 +189,7 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
                   const sel = selected && selected[0] === r && selected[1] === c;
                   const given = isGiven(r, c);
                   const tipHighlighted = tip?.highlight?.cells?.some(([rr, cc]) => rr === r && cc === c);
+                  const isMistake = val !== 0 && val !== solution[r][c] && !given;
                   return (
                     <motion.button
                       key={`${r}-${c}`}
@@ -185,7 +197,7 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
                       whileTap={{ scale: 0.96 }}
                       animate={sel ? { boxShadow: "0 0 0 2px rgba(99,102,241,0.8) inset" } : {}}
                       className={[
-                        "relative aspect-square bg-white flex items-center justify-center text-lg select-none",
+                        "relative aspect-square flex items-center justify-center text-lg select-none",
                         // grid lines
                         "border border-gray-200",
                         // thicker block borders
@@ -194,6 +206,7 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
                         (r + 1) % 3 === 0 && "border-b-4 border-b-gray-500",
                         (c + 1) % 3 === 0 && "border-r-4 border-r-gray-500",
                         sel ? "bg-indigo-50" : tipHighlighted ? "bg-yellow-50" : "",
+                        isMistake ? "bg-red-500 bg-opacity-80 text-white animate-pulse" : "bg-white",
                         given ? "text-gray-900 font-semibold" : "text-indigo-700",
                       ]
                         .filter(Boolean)
@@ -261,7 +274,10 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
         )}
       </div>
 
-      <div className="text-center text-sm text-gray-600">Mistakes: {mistakes}</div>
+      {/* Count current mistakes (not attempts) */}
+      <div className="text-center text-sm text-gray-600">
+        Mistakes: {mistakeCount}
+      </div>
     </div>
   );
 }
