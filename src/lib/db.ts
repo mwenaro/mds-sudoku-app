@@ -3,12 +3,14 @@ import fs from "node:fs";
 import path from "node:path";
 
 let Database: any = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  Database = require("better-sqlite3");
-} catch (e) {
-  // Native module not available (e.g., no build tools) – we'll fall back to memory store
-  Database = null;
+if (typeof window === "undefined") {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    Database = require("better-sqlite3");
+  } catch (e) {
+    // Native module not available – fall back to memory store
+    Database = null;
+  }
 }
 
 const root = process.cwd();
