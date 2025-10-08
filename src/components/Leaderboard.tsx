@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SignedIn, SignedOut } from "@clerk/nextjs";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 
 type RecordRow = {
@@ -10,6 +11,9 @@ type RecordRow = {
   time_seconds: number;
   mistakes: number;
   created_at: string;
+  user_id?: string | null;
+  user_name?: string | null;
+  user_email?: string | null;
 };
 
 export default function Leaderboard() {
@@ -41,6 +45,12 @@ export default function Leaderboard() {
         <CardTitle>Leaderboard</CardTitle>
       </CardHeader>
       <CardContent>
+        <SignedIn>
+          <div className="mb-2 text-xs text-gray-500">Showing your records only (signed in)</div>
+        </SignedIn>
+        <SignedOut>
+          <div className="mb-2 text-xs text-gray-500">Showing all records (public)</div>
+        </SignedOut>
         {loading ? (
           <div className="text-sm text-gray-600">Loading…</div>
         ) : error ? (
@@ -52,6 +62,7 @@ export default function Leaderboard() {
                 <tr className="text-left border-b">
                   <th className="py-2 pr-2">#</th>
                   <th className="py-2 pr-2">Name</th>
+                <th className="py-2 pr-2">Email</th>
                   <th className="py-2 pr-2">Difficulty</th>
                   <th className="py-2 pr-2">Time (s)</th>
                   <th className="py-2 pr-2">Mistakes</th>
@@ -62,7 +73,8 @@ export default function Leaderboard() {
                 {rows.map((r, i) => (
                   <tr key={r.id} className="border-b last:border-b-0">
                     <td className="py-2 pr-2">{i + 1}</td>
-                    <td className="py-2 pr-2">{r.name}</td>
+                  <td className="py-2 pr-2">{r.user_name || r.name}</td>
+                  <td className="py-2 pr-2">{r.user_email || "-"}</td>
                     <td className="py-2 pr-2 capitalize">{r.difficulty}</td>
                     <td className="py-2 pr-2">{r.time_seconds}</td>
                     <td className="py-2 pr-2">{r.mistakes}</td>

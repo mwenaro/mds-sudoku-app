@@ -5,6 +5,7 @@ import DifficultySelector from "@/components/DifficultySelector";
 import Leaderboard from "@/components/Leaderboard";
 import { generate, type Difficulty } from "@/utils/sudoku";
 import { Button } from "@/components/ui/button";
+import { AuthNav } from "@/components/AuthNav";
 
 export default function Home() {
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
@@ -22,7 +23,10 @@ export default function Home() {
 
   return (
     <div className="min-h-screen max-w-5xl mx-auto p-6 flex flex-col gap-6">
-      <h1 className="text-2xl font-bold">Sudoku — Next.js 15 Demo</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Sudoku — Next.js 15 Demo</h1>
+        <AuthNav />
+      </div>
       <div className="flex items-center gap-3 flex-wrap">
         <DifficultySelector value={difficulty} onChange={(d) => setDifficulty(d as Difficulty)} />
         <Button variant="outline" onClick={() => setShowLb((s) => !s)}>
