@@ -6,34 +6,50 @@ import Leaderboard from "@/components/Leaderboard";
 import { generate, type Difficulty } from "@/utils/sudoku";
 import { Button } from "@/components/ui/button";
 import { AuthNav } from "@/components/AuthNav";
+import { useGameStore } from "@/store/gameStore";
+
 
 export default function Home() {
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
   const [showLb, setShowLb] = useState(false);
   const [started, setStarted] = useState(false);
-  const [running, setRunning] = useState(false);
+  const { reset } = useGameStore();
   const { puzzle, solution } = useMemo(() => generate(difficulty), [difficulty]);
+
+  // Helper to map difficulty string to numeric level
+  function difficultyToLevel(d: Difficulty): number {
+    switch (d) {
+      case "easy": return 1;
+      case "medium": return 2;
+      case "difficult": return 3;
+      case "expert": return 4;
+      case "nightmare": return 5;
+      default: return 0;
+    }
+  }
 
   function onComplete(stats: { mistakes: number; timeSeconds: number }) {
     alert("Puzzle Completed!");
-    setRunning(false);
     fetch("/api/records", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "Player", difficulty, time_seconds: stats.timeSeconds, mistakes: stats.mistakes }),
+      body: JSON.stringify({
+        level: difficultyToLevel(difficulty),
+        timeTaken: stats.timeSeconds,
+        // Optionally include mistakes if you want to store it in the DB
+      }),
     }).catch(() => {});
   }
 
-  // Reset started state when difficulty changes
+  // Reset game state when difficulty changes
   function handleDifficultyChange(d: Difficulty) {
     setDifficulty(d);
     setStarted(false);
-    setRunning(false);
+    reset();
   }
 
   function handleStart() {
     setStarted(true);
-    setRunning(true);
   }
 
   return (
@@ -58,7 +74,7 @@ export default function Home() {
           </Button>
         </div>
       ) : (
-  <SudokuBoard initial={puzzle} solution={solution} onComplete={onComplete} disabled={!running} running={running} setRunning={setRunning} />
+        <SudokuBoard initial={puzzle} solution={solution} onComplete={onComplete} />
       )}
     </div>
   );

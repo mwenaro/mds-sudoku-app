@@ -8,21 +8,21 @@ const userSchema = new mongoose.Schema({
   username: { type: String, required: true },
 });
 
-const User = mongoose.model("User", userSchema);
+const User = mongoose.models?.User || mongoose.model("User", userSchema);
 
 // Game Schema
 const gameSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  userId: { type: String, required: true },
   level: { type: Number, required: true },
   timeTaken: { type: Number, required: true },
   date: { type: Date, default: Date.now },
 });
 
-const Game = mongoose.model("Game", gameSchema);
+const Game = mongoose.models?.Game || mongoose.model("Game", gameSchema);
 
 export { User, Game };
 
-const createUser = async (userData: UserType) => {
+export const createUser = async (userData: UserType) => {
   const user = new User(userData);
   await user.save();
 };

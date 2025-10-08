@@ -6,26 +6,36 @@ import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import type { Grid, getTip as getTipFn } from "@/utils/sudoku";
 import { getTip as computeTip } from "@/utils/sudoku";
+import { useGameStore } from "@/store/gameStore";
 
 type Props = {
   initial: Grid;
   solution: Grid;
   onComplete?: (stats: { mistakes: number; timeSeconds: number }) => void;
-  disabled?: boolean;
-  running: boolean;
-  setRunning: (running: boolean) => void;
 };
 
-export default function SudokuBoard({ initial, solution, onComplete, disabled = false, running, setRunning }: Props) {
+export default function SudokuBoard({ initial, solution, onComplete }: Props) {
+  const {
+    running,
+    completed,
+    elapsed,
+    baseMs,
+    lastStartAt,
+    start,
+    pause,
+    reset,
+    setCompleted,
+    setElapsed,
+    setBaseMs,
+    setLastStartAt,
+    updateElapsed,
+  } = useGameStore();
+
   const [grid, setGrid] = useState<Grid>(() => initial.map((r) => r.slice()));
   const [selected, setSelected] = useState<[number, number] | null>(null);
   // Track total mistakes made (not just current mistakes)
   const [mistakeCount, setMistakeCount] = useState(0);
   const [tip, setTip] = useState<ReturnType<typeof computeTip> | null>(null);
-  // Timer state
-  const [elapsed, setElapsed] = useState(0); // seconds for display
-  const [baseMs, setBaseMs] = useState(0); // accumulated ms
-  const [lastStartAt, setLastStartAt] = useState<number | null>(null);
   const [pencilMode, setPencilMode] = useState(false);
   // notes[r][c] is a Set of candidate digits 1-9
   const [notes, setNotes] = useState<Set<number>[][]>(() =>
@@ -37,7 +47,7 @@ export default function SudokuBoard({ initial, solution, onComplete, disabled = 
     setSelected(null);
     setTip(null);
     setMistakeCount(0);
-    // reset timer
+    // reset timer state
     setElapsed(0);
     setBaseMs(0);
     setLastStartAt(null);
@@ -55,7 +65,6 @@ export default function SudokuBoard({ initial, solution, onComplete, disabled = 
     return (r: number, c: number) => given.has(`${r},${c}`);
   }, [initial]);
 
-  const [completed, setCompleted] = useState(false);
   useEffect(() => {
     // completion check
     const done = grid.every((r, i) => r.every((v, j) => v === solution[i][j]));
@@ -65,61 +74,38 @@ export default function SudokuBoard({ initial, solution, onComplete, disabled = 
       const timeSeconds = Math.round(ms / 1000);
       // Count mistakes at completion
       onComplete?.({ mistakes: mistakeCount, timeSeconds });
-      // auto stop on completion
-      setRunning(false);
-      setBaseMs(ms);
-      setLastStartAt(null);
+      // auto stop on completion and mark as completed
       setCompleted(true);
     }
-  }, [grid, solution, baseMs, running, lastStartAt, onComplete, isGiven, completed]);
+  }, [grid, solution, baseMs, running, lastStartAt, onComplete, completed, mistakeCount, setCompleted]);
 
   // timer
   useEffect(() => {
     if (!running) {
-      // when paused, keep display in sync with baseMs
-      const ms = baseMs;
-      setElapsed(Math.floor(ms / 1000));
+      updateElapsed();
       return;
     }
     const id = setInterval(() => {
-      const now = Date.now();
-      const ms = baseMs + (lastStartAt ? now - lastStartAt : 0);
-      setElapsed(Math.floor(ms / 1000));
+      updateElapsed();
     }, 250);
     return () => clearInterval(id);
-  }, [running, baseMs, lastStartAt]);
-
+  }, [running, baseMs, lastStartAt, updateElapsed]);
 
   function startOrResume() {
-    if (disabled || completed) return;
-    if (!running) {
-      setRunning(true);
-      setLastStartAt(Date.now());
-    }
+    if (completed) return;
+    start();
   }
 
-
-  function pause() {
-    if (disabled) return;
-    if (running && lastStartAt) {
-      const now = Date.now();
-      setBaseMs((ms) => ms + (now - lastStartAt));
-      setRunning(false);
-      setLastStartAt(null);
-    }
+  function pauseGame() {
+    pause();
   }
-
 
   function resetTimer() {
-    if (disabled) return;
-    setBaseMs(0);
-    setLastStartAt(running ? Date.now() : null);
-    setElapsed(0);
-    setCompleted(false);
+    reset();
   }
 
   function handleInput(val: number) {
-    if (disabled || !running) return;
+    if (!running) return;
     if (!selected) return;
     const [r, c] = selected;
     if (isGiven(r, c)) return;
@@ -160,7 +146,7 @@ export default function SudokuBoard({ initial, solution, onComplete, disabled = 
   }
 
   function onTip() {
-    if (disabled || !running) return;
+    if (!running) return;
     const t = computeTip(grid);
     setTip(t);
     if (t?.highlight?.cells?.[0]) setSelected(t.highlight.cells[0]);
@@ -178,10 +164,10 @@ export default function SudokuBoard({ initial, solution, onComplete, disabled = 
             <Button size="sm" onClick={startOrResume} disabled={completed}>
               {running ? "Running" : elapsed > 0 ? "Resume" : "Start"}
             </Button>
-            <Button size="sm" variant="outline" onClick={pause} disabled={!running || disabled}>
+            <Button size="sm" variant="outline" onClick={pauseGame} disabled={!running}>
               Pause
             </Button>
-            <Button size="sm" variant="ghost" onClick={resetTimer} disabled={(running && elapsed === 0) || disabled}>
+            <Button size="sm" variant="ghost" onClick={resetTimer} disabled={running && elapsed === 0}>
               Reset
             </Button>
           </div>

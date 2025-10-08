@@ -6,13 +6,14 @@ import { GameType } from '@/lib/types';
 import connectDB from '@/lib/db';
 
 // Connect to the database
-connectDB();
+
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
   try {
+    await connectDB();
     const { userId } = await auth();
     let games;
     if (userId) {
@@ -21,7 +22,8 @@ export async function GET() {
       games = await getGames();
     }
     return new Response(JSON.stringify(games), { status: 200 });
-  } catch (error) {
+  } catch (error:any) {
+    console.log("Error is ",error.message);
     return new Response(JSON.stringify({ error: 'Failed to fetch records' }), { status: 500 });
   }
 }
@@ -29,6 +31,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const { userId } = await auth();
+    await connectDB();
   const gameData: GameType = await request.json(); // Updated to use GameType
   if (!userId) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
@@ -37,6 +40,7 @@ export async function POST(request: NextRequest) {
     const game = await createGame({ ...gameData, userId });
     return new Response(JSON.stringify(game), { status: 201 });
   } catch (error) {
+    console.log(error);
     return new Response(JSON.stringify({ error: 'Failed to create game' }), { status: 500 });
   }
 }
