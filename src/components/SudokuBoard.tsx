@@ -6,6 +6,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import type { Grid, getTip as getTipFn } from "@/utils/sudoku";
 import { getTip as computeTip } from "@/utils/sudoku";
+import { useGameStore } from "@/store/gameStore";
 
 type Props = {
   initial: Grid;
@@ -14,16 +15,27 @@ type Props = {
 };
 
 export default function SudokuBoard({ initial, solution, onComplete }: Props) {
+  const {
+    running,
+    completed,
+    elapsed,
+    baseMs,
+    lastStartAt,
+    start,
+    pause,
+    reset,
+    setCompleted,
+    setElapsed,
+    setBaseMs,
+    setLastStartAt,
+    updateElapsed,
+  } = useGameStore();
+
   const [grid, setGrid] = useState<Grid>(() => initial.map((r) => r.slice()));
   const [selected, setSelected] = useState<[number, number] | null>(null);
   // Track total mistakes made (not just current mistakes)
   const [mistakeCount, setMistakeCount] = useState(0);
   const [tip, setTip] = useState<ReturnType<typeof computeTip> | null>(null);
-  // Timer state
-  const [elapsed, setElapsed] = useState(0); // seconds for display
-  const [baseMs, setBaseMs] = useState(0); // accumulated ms
-  const [running, setRunning] = useState(false);
-  const [lastStartAt, setLastStartAt] = useState<number | null>(null);
   const [pencilMode, setPencilMode] = useState(false);
   // notes[r][c] is a Set of candidate digits 1-9
   const [notes, setNotes] = useState<Set<number>[][]>(() =>
@@ -35,10 +47,9 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
     setSelected(null);
     setTip(null);
     setMistakeCount(0);
-    // reset timer
+    // reset timer state
     setElapsed(0);
     setBaseMs(0);
-    setRunning(false);
     setLastStartAt(null);
     setNotes(Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set<number>())));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -57,58 +68,44 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
   useEffect(() => {
     // completion check
     const done = grid.every((r, i) => r.every((v, j) => v === solution[i][j]));
-    if (done) {
+    if (done && !completed) {
       const now = Date.now();
       const ms = baseMs + (running && lastStartAt ? now - lastStartAt : 0);
       const timeSeconds = Math.round(ms / 1000);
       // Count mistakes at completion
-  onComplete?.({ mistakes: mistakeCount, timeSeconds });
-      // auto stop on completion
-      setRunning(false);
-      setBaseMs(ms);
-      setLastStartAt(null);
+      onComplete?.({ mistakes: mistakeCount, timeSeconds });
+      // auto stop on completion and mark as completed
+      setCompleted(true);
     }
-  }, [grid, solution, baseMs, running, lastStartAt, onComplete, isGiven]);
+  }, [grid, solution, baseMs, running, lastStartAt, onComplete, completed, mistakeCount, setCompleted]);
 
   // timer
   useEffect(() => {
     if (!running) {
-      // when paused, keep display in sync with baseMs
-      const ms = baseMs;
-      setElapsed(Math.floor(ms / 1000));
+      updateElapsed();
       return;
     }
     const id = setInterval(() => {
-      const now = Date.now();
-      const ms = baseMs + (lastStartAt ? now - lastStartAt : 0);
-      setElapsed(Math.floor(ms / 1000));
+      updateElapsed();
     }, 250);
     return () => clearInterval(id);
-  }, [running, baseMs, lastStartAt]);
+  }, [running, baseMs, lastStartAt, updateElapsed]);
 
   function startOrResume() {
-    if (!running) {
-      setRunning(true);
-      setLastStartAt(Date.now());
-    }
+    if (completed) return;
+    start();
   }
 
-  function pause() {
-    if (running && lastStartAt) {
-      const now = Date.now();
-      setBaseMs((ms) => ms + (now - lastStartAt));
-      setRunning(false);
-      setLastStartAt(null);
-    }
+  function pauseGame() {
+    pause();
   }
 
   function resetTimer() {
-    setBaseMs(0);
-    setLastStartAt(running ? Date.now() : null);
-    setElapsed(0);
+    reset();
   }
 
   function handleInput(val: number) {
+    if (!running) return;
     if (!selected) return;
     const [r, c] = selected;
     if (isGiven(r, c)) return;
@@ -149,6 +146,7 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
   }
 
   function onTip() {
+    if (!running) return;
     const t = computeTip(grid);
     setTip(t);
     if (t?.highlight?.cells?.[0]) setSelected(t.highlight.cells[0]);
@@ -163,10 +161,10 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
             Time: {String(Math.floor(elapsed / 60)).padStart(2, "0")}:{String(elapsed % 60).padStart(2, "0")}
           </span>
           <div className="flex items-center gap-1">
-            <Button size="sm" onClick={startOrResume}>
+            <Button size="sm" onClick={startOrResume} disabled={completed}>
               {running ? "Running" : elapsed > 0 ? "Resume" : "Start"}
             </Button>
-            <Button size="sm" variant="outline" onClick={pause} disabled={!running}>
+            <Button size="sm" variant="outline" onClick={pauseGame} disabled={!running}>
               Pause
             </Button>
             <Button size="sm" variant="ghost" onClick={resetTimer} disabled={running && elapsed === 0}>
@@ -193,7 +191,7 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
                   return (
                     <motion.button
                       key={`${r}-${c}`}
-                      onClick={() => setSelected([r, c])}
+                      onClick={() => running && setSelected([r, c])}
                       whileTap={{ scale: 0.96 }}
                       animate={sel ? { boxShadow: "0 0 0 2px rgba(99,102,241,0.8) inset" } : {}}
                       className={[
@@ -235,23 +233,23 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
       <div className="flex items-center justify-center gap-2 flex-wrap">
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
           <motion.div key={n} whileTap={{ scale: 0.9 }}>
-            <Button onClick={() => handleInput(n)} className="w-10">
+            <Button onClick={() => handleInput(n)} className="w-10" disabled={!running}>
               {n}
             </Button>
           </motion.div>
         ))}
         <motion.div whileTap={{ scale: 0.9 }}>
-          <Button variant="outline" onClick={() => handleInput(0)}>
+          <Button variant="outline" onClick={() => handleInput(0)} disabled={!running}>
             Erase
           </Button>
         </motion.div>
         <motion.div whileTap={{ scale: 0.9 }}>
-          <Button variant={pencilMode ? "default" : "outline"} onClick={() => setPencilMode((m) => !m)}>
+          <Button variant={pencilMode ? "default" : "outline"} onClick={() => setPencilMode((m) => !m)} disabled={!running}>
             {pencilMode ? "Pencil ON" : "Pencil OFF"}
           </Button>
         </motion.div>
         <motion.div whileTap={{ scale: 0.9 }}>
-          <Button variant="ghost" onClick={onTip}>
+          <Button variant="ghost" onClick={onTip} disabled={!running}>
             Tip
           </Button>
         </motion.div>
@@ -260,13 +258,14 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
             <Button
               variant="ghost"
               onClick={() =>
-                setNotes((old) => {
+                running && setNotes((old) => {
                   const n = old.map((row) => row.map((s) => new Set(s)));
                   const [r, c] = selected;
                   n[r][c].clear();
                   return n;
                 })
               }
+              disabled={!running}
             >
               Clear Notes
             </Button>
