@@ -27,10 +27,19 @@ const createUser = async (userData: UserType) => {
   await user.save();
 };
 
-async function createGame(gameData: GameType) {
+export const createGame = async (gameData: GameType) => {
   const game = new Game(gameData);
   await game.save();
-}
+};
+
+
+
+export const getGames = async (userId?: string) => {
+  if (userId) {
+    return await Game.find({ userId });
+  }
+  return await Game.find();
+};
 
 // Connect to MongoDB
 const connectDB = async () => {
@@ -46,3 +55,5 @@ const connectDB = async () => {
 };
 
 export default connectDB;
+
+
