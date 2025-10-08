@@ -42,6 +42,9 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
     Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set<number>()))
   );
 
+  // Digit highlighting feature
+  const [highlightDigit, setHighlightDigit] = useState<number | null>(null);
+
   useEffect(() => {
     setGrid(initial.map((r) => r.slice()));
     setSelected(null);
@@ -109,7 +112,7 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
     if (!selected) return;
     const [r, c] = selected;
     if (isGiven(r, c)) return;
-    if (pencilMode && val !== 0) {
+  if (pencilMode && val !== 0) {
       // toggle note
       setNotes((old) => {
         const n = old.map((row) => row.map((s) => new Set(s)));
@@ -117,9 +120,11 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
         else n[r][c].add(val);
         return n;
       });
-      return;
+  // Do not highlight for pencil input
+  setHighlightDigit(null);
+  return;
     }
-    setGrid((g) => {
+  setGrid((g) => {
       const next = g.map((row) => row.slice());
       const prevVal = g[r][c];
       if (val === 0) next[r][c] = 0;
@@ -141,7 +146,10 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
           return n;
         });
       }
-      return next;
+  // If a true value is placed, update highlight digit
+  if (val !== 0) setHighlightDigit(val);
+  else setHighlightDigit(null);
+  return next;
     });
   }
 
@@ -152,9 +160,24 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
     if (t?.highlight?.cells?.[0]) setSelected(t.highlight.cells[0]);
   }
 
+  // Handle cell click for digit highlighting
+  function handleCellClick(r: number, c: number) {
+    setSelected([r, c]);
+    const val = grid[r][c];
+    // Only highlight if cell has a true value (not 0, not pencil)
+    if (val !== 0) {
+      setHighlightDigit(val);
+      console.log('Highlighting digit:', val);
+    } else {
+      setHighlightDigit(null);
+      console.log('Clearing highlight');
+    }
+  }
+
   return (
     <div className="w-full flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2 text-sm text-gray-700">
+  {/* Removed debug text for highlighting digit */}
+  <div className="flex items-center justify-between gap-2 text-sm text-gray-700">
         <div>Mode: {pencilMode ? "Pencil" : "Number"}</div>
         <div className="flex items-center gap-2">
           <span className="tabular-nums">
@@ -188,10 +211,16 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
                   const given = isGiven(r, c);
                   const tipHighlighted = tip?.highlight?.cells?.some(([rr, cc]) => rr === r && cc === c);
                   const isMistake = val !== 0 && val !== solution[r][c] && !given;
+                  // Highlight if this cell's value matches the highlighted digit (and is a true value)
+                  const isDigitHighlighted =
+                    highlightDigit !== null && val === highlightDigit && val !== 0;
+                  if (isDigitHighlighted) {
+                    console.log(`Cell [${r},${c}] highlighted for digit`, highlightDigit);
+                  }
                   return (
                     <motion.button
                       key={`${r}-${c}`}
-                      onClick={() => running && setSelected([r, c])}
+                      onClick={() => handleCellClick(r, c)}
                       whileTap={{ scale: 0.96 }}
                       animate={sel ? { boxShadow: "0 0 0 2px rgba(99,102,241,0.8) inset" } : {}}
                       className={[
@@ -209,6 +238,7 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
                       ]
                         .filter(Boolean)
                         .join(" ")}
+                      style={isDigitHighlighted ? { backgroundColor: '#22c55e' } : {}}
                     >
                       {val !== 0 ? (
                         val
