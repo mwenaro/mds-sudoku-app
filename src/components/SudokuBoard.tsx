@@ -17,9 +17,12 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
   const [grid, setGrid] = useState<Grid>(() => initial.map((r) => r.slice()));
   const [selected, setSelected] = useState<[number, number] | null>(null);
   const [mistakes, setMistakes] = useState(0);
-  const [startTime] = useState(() => Date.now());
   const [tip, setTip] = useState<ReturnType<typeof computeTip> | null>(null);
-  const [elapsed, setElapsed] = useState(0);
+  // Timer state
+  const [elapsed, setElapsed] = useState(0); // seconds for display
+  const [baseMs, setBaseMs] = useState(0); // accumulated ms
+  const [running, setRunning] = useState(false);
+  const [lastStartAt, setLastStartAt] = useState<number | null>(null);
   const [pencilMode, setPencilMode] = useState(false);
   // notes[r][c] is a Set of candidate digits 1-9
   const [notes, setNotes] = useState<Set<number>[][]>(() =>
@@ -31,7 +34,11 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
     setSelected(null);
     setMistakes(0);
     setTip(null);
+    // reset timer
     setElapsed(0);
+    setBaseMs(0);
+    setRunning(false);
+    setLastStartAt(null);
     setNotes(Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set<number>())));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial]);
@@ -50,16 +57,54 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
     // completion check
     const done = grid.every((r, i) => r.every((v, j) => v === solution[i][j]));
     if (done) {
-      const timeSeconds = Math.round((Date.now() - startTime) / 1000);
+      const now = Date.now();
+      const ms = baseMs + (running && lastStartAt ? now - lastStartAt : 0);
+      const timeSeconds = Math.round(ms / 1000);
       onComplete?.({ mistakes, timeSeconds });
+      // auto stop on completion
+      setRunning(false);
+      setBaseMs(ms);
+      setLastStartAt(null);
     }
-  }, [grid, solution, startTime, mistakes, onComplete]);
+  }, [grid, solution, baseMs, running, lastStartAt, mistakes, onComplete]);
 
   // timer
   useEffect(() => {
-    const id = setInterval(() => setElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
+    if (!running) {
+      // when paused, keep display in sync with baseMs
+      const ms = baseMs;
+      setElapsed(Math.floor(ms / 1000));
+      return;
+    }
+    const id = setInterval(() => {
+      const now = Date.now();
+      const ms = baseMs + (lastStartAt ? now - lastStartAt : 0);
+      setElapsed(Math.floor(ms / 1000));
+    }, 250);
     return () => clearInterval(id);
-  }, [startTime]);
+  }, [running, baseMs, lastStartAt]);
+
+  function startOrResume() {
+    if (!running) {
+      setRunning(true);
+      setLastStartAt(Date.now());
+    }
+  }
+
+  function pause() {
+    if (running && lastStartAt) {
+      const now = Date.now();
+      setBaseMs((ms) => ms + (now - lastStartAt));
+      setRunning(false);
+      setLastStartAt(null);
+    }
+  }
+
+  function resetTimer() {
+    setBaseMs(0);
+    setLastStartAt(running ? Date.now() : null);
+    setElapsed(0);
+  }
 
   function handleInput(val: number) {
     if (!selected) return;
@@ -100,9 +145,24 @@ export default function SudokuBoard({ initial, solution, onComplete }: Props) {
 
   return (
     <div className="w-full flex flex-col gap-4">
-      <div className="flex items-center justify-between text-sm text-gray-700">
+      <div className="flex items-center justify-between gap-2 text-sm text-gray-700">
         <div>Mode: {pencilMode ? "Pencil" : "Number"}</div>
-        <div>Time: {String(Math.floor(elapsed / 60)).padStart(2, "0")}:{String(elapsed % 60).padStart(2, "0")}</div>
+        <div className="flex items-center gap-2">
+          <span className="tabular-nums">
+            Time: {String(Math.floor(elapsed / 60)).padStart(2, "0")}:{String(elapsed % 60).padStart(2, "0")}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button size="sm" onClick={startOrResume}>
+              {running ? "Running" : elapsed > 0 ? "Resume" : "Start"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={pause} disabled={!running}>
+              Pause
+            </Button>
+            <Button size="sm" variant="ghost" onClick={resetTimer} disabled={running && elapsed === 0}>
+              Reset
+            </Button>
+          </div>
+        </div>
       </div>
       <Card>
         <CardContent>
