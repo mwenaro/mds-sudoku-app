@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   Alert,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
@@ -19,7 +19,7 @@ import SudokuBoard from '../components/SudokuBoard';
 type GameScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Game'>;
 type GameScreenRouteProp = RouteProp<RootStackParamList, 'Game'>;
 
-const GameScreen: React.FC = () => {
+const MdsSudokuGameScreen: React.FC = () => {
   const navigation = useNavigation<GameScreenNavigationProp>();
   const route = useRoute<GameScreenRouteProp>();
   const { difficulty } = route.params;
@@ -32,12 +32,83 @@ const GameScreen: React.FC = () => {
     pause,
     reset,
     updateElapsed,
+    setCompleted,
+    baseMs,
+    lastStartAt,
   } = useGameStore();
 
   const [started, setStarted] = useState(false);
   const [mistakeCount, setMistakeCount] = useState(0);
 
   const { puzzle, solution } = useMemo(() => generate(difficulty), [difficulty]);
+
+  // Local state for the board
+  const [grid, setGrid] = useState<Grid>(() => puzzle.map((row) => row.slice()));
+  const [notes, setNotes] = useState<Set<number>[][]>(
+    () => Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set<number>()))
+  );
+  const [selected, setSelected] = useState<[number, number] | null>(null);
+  const [pencilMode, setPencilMode] = useState(false);
+
+  // Helper to check if a cell is a given
+  const isGiven = (r: number, c: number) => puzzle[r][c] !== 0;
+
+  // Handle cell press
+  const handleCellPress = (r: number, c: number) => {
+    if (completed) return;
+    setSelected([r, c]);
+  };
+
+  // Handle number input
+  const handleNumberInput = (num: number) => {
+    if (!selected || completed) return;
+    const [r, c] = selected;
+    if (isGiven(r, c)) return;
+    if (pencilMode && num !== 0) {
+      setNotes((old) => {
+        const n = old.map((row) => row.map((s) => new Set(s)));
+        if (n[r][c].has(num)) n[r][c].delete(num);
+        else n[r][c].add(num);
+        return n;
+      });
+      return;
+    }
+    setGrid((g) => {
+      const next = g.map((row) => row.slice());
+      next[r][c] = num;
+      return next;
+    });
+    // Clear notes when value placed
+    if (num !== 0) {
+      setNotes((old) => {
+        const n = old.map((row) => row.map((s) => new Set(s)));
+        n[r][c].clear();
+        return n;
+      });
+    }
+    // Mistake logic
+    if (num !== 0 && num !== solution[r][c]) {
+      onMistake();
+    }
+    // Completion check
+    if (num !== 0) {
+      setTimeout(() => {
+        if (isBoardComplete(grid, solution)) {
+          onComplete({ mistakes: mistakeCount, timeSeconds: elapsed });
+        }
+      }, 100);
+    }
+  };
+
+  // Helper to check if board is complete
+  function isBoardComplete(g: Grid, sol: Grid) {
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        if (g[r][c] !== sol[r][c]) return false;
+      }
+    }
+    return true;
+  }
 
   // Timer effect
   useEffect(() => {
@@ -103,14 +174,17 @@ const GameScreen: React.FC = () => {
   };
 
   const onComplete = (stats: { mistakes: number; timeSeconds: number }) => {
-    Alert.alert(
-      'Congratulations!',
-      `Puzzle completed!\nTime: ${formatTime(stats.timeSeconds)}\nMistakes: ${stats.mistakes}`,
-      [
-        { text: 'New Game', onPress: handleNewGame },
-        { text: 'Home', onPress: () => navigation.navigate('Home') },
-      ]
-    );
+    if (!completed) {
+      setCompleted(true);
+      Alert.alert(
+        'Congratulations!',
+        `Puzzle completed!\nTime: ${formatTime(stats.timeSeconds)}\nMistakes: ${stats.mistakes}`,
+        [
+          { text: 'New Game', onPress: handleNewGame },
+          { text: 'Home', onPress: () => navigation.navigate('Home') },
+        ]
+      );
+    }
   };
 
   const onMistake = () => {
@@ -186,11 +260,15 @@ const GameScreen: React.FC = () => {
 
         {/* Sudoku Board */}
         <SudokuBoard
-          initial={puzzle}
+          grid={grid}
           solution={solution}
-          onComplete={onComplete}
-          onMistake={onMistake}
-          isGameRunning={running}
+          notes={notes}
+          selected={selected}
+          pencilMode={pencilMode}
+          setPencilMode={setPencilMode}
+          handleCellPress={handleCellPress}
+          handleNumberInput={handleNumberInput}
+          isGiven={isGiven}
         />
       </ScrollView>
     </SafeAreaView>
@@ -306,4 +384,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default GameScreen;
+export default MdsSudokuGameScreen;
