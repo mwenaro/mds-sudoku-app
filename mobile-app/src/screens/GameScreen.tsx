@@ -19,7 +19,7 @@ import SudokuBoard from '../components/SudokuBoard';
 type GameScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Game'>;
 type GameScreenRouteProp = RouteProp<RootStackParamList, 'Game'>;
 
-const GameScreen: React.FC = () => {
+const MdsSudokuGameScreen: React.FC = () => {
   const navigation = useNavigation<GameScreenNavigationProp>();
   const route = useRoute<GameScreenRouteProp>();
   const { difficulty } = route.params;
@@ -384,4 +384,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default GameScreen;
+export default MdsSudokuGameScreen;
