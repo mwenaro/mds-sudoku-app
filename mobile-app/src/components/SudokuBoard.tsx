@@ -7,7 +7,7 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
-import { useGameStore } from '../store/gameStore';
+// import { useGameStore } from '../store/gameStore';
 import type { Grid } from '../utils/sudoku';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -27,15 +27,11 @@ export default function SudokuBoard({
   solution, 
   onComplete, 
   onMistake,
-  isGameRunning 
-}: Props) {
-  const { 
-    completed, 
-    elapsed, 
-    baseMs, 
-    lastStartAt, 
-    setCompleted 
-  } = useGameStore();
+  isGameRunning,
+  completed,
+  baseMs,
+  lastStartAt
+}: Props & { completed: boolean; baseMs: number; lastStartAt: number | null }) {
 
   const [grid, setGrid] = useState<Grid>(() => initial.map((r) => r.slice()));
   const [selected, setSelected] = useState<[number, number] | null>(null);
@@ -63,17 +59,17 @@ export default function SudokuBoard({
     setNotes(Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set<number>())));
   }, [initial]);
 
-  // Check for completion
+  // Check for completion only when grid or solution changes, and avoid calling setCompleted in render
   useEffect(() => {
+    if (completed) return;
     const done = grid.every((r, i) => r.every((v, j) => v === solution[i][j]));
-    if (done && !completed) {
+    if (done) {
       const now = Date.now();
       const ms = baseMs + (isGameRunning && lastStartAt ? now - lastStartAt : 0);
       const timeSeconds = Math.round(ms / 1000);
       onComplete?.({ mistakes: mistakeCount, timeSeconds });
-      setCompleted(true);
     }
-  }, [grid, solution, baseMs, isGameRunning, lastStartAt, onComplete, completed, mistakeCount, setCompleted]);
+  }, [grid, solution, completed, baseMs, isGameRunning, lastStartAt, onComplete, mistakeCount]);
 
   const handleCellPress = (r: number, c: number) => {
     if (!isGameRunning) return;

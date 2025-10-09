@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   Alert,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
@@ -32,6 +32,9 @@ const GameScreen: React.FC = () => {
     pause,
     reset,
     updateElapsed,
+    setCompleted,
+    baseMs,
+    lastStartAt,
   } = useGameStore();
 
   const [started, setStarted] = useState(false);
@@ -103,14 +106,17 @@ const GameScreen: React.FC = () => {
   };
 
   const onComplete = (stats: { mistakes: number; timeSeconds: number }) => {
-    Alert.alert(
-      'Congratulations!',
-      `Puzzle completed!\nTime: ${formatTime(stats.timeSeconds)}\nMistakes: ${stats.mistakes}`,
-      [
-        { text: 'New Game', onPress: handleNewGame },
-        { text: 'Home', onPress: () => navigation.navigate('Home') },
-      ]
-    );
+    if (!completed) {
+      setCompleted(true);
+      Alert.alert(
+        'Congratulations!',
+        `Puzzle completed!\nTime: ${formatTime(stats.timeSeconds)}\nMistakes: ${stats.mistakes}`,
+        [
+          { text: 'New Game', onPress: handleNewGame },
+          { text: 'Home', onPress: () => navigation.navigate('Home') },
+        ]
+      );
+    }
   };
 
   const onMistake = () => {
@@ -191,6 +197,9 @@ const GameScreen: React.FC = () => {
           onComplete={onComplete}
           onMistake={onMistake}
           isGameRunning={running}
+          completed={completed}
+          baseMs={baseMs}
+          lastStartAt={lastStartAt}
         />
       </ScrollView>
     </SafeAreaView>
