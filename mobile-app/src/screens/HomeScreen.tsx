@@ -4,9 +4,9 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,7 +15,7 @@ import type { Difficulty } from '../utils/sudoku';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
 
-const HomeScreen: React.FC = () => {
+const MdsSudokuHomeScreen: React.FC = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
 
   const difficulties: { name: Difficulty; color: string; description: string }[] = [
@@ -148,4 +148,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default HomeScreen;
+export default MdsSudokuHomeScreen;

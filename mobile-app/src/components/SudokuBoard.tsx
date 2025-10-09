@@ -1,143 +1,39 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Dimensions,
-  Alert,
-} from 'react-native';
-import { useGameStore } from '../store/gameStore';
-import type { Grid } from '../utils/sudoku';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 
-const { width: screenWidth } = Dimensions.get('window');
-const boardSize = Math.min(screenWidth - 32, 400);
+
+// Responsive board and cell sizing
+const screenWidth = Dimensions.get('window').width;
+const boardSize = Math.min(screenWidth - 32, 360);
 const cellSize = boardSize / 9;
 
-type Props = {
-  initial: Grid;
+// Type definitions
+type Grid = number[][];
+type Notes = Set<number>[][];
+
+interface SudokuBoardProps {
+  grid: Grid;
   solution: Grid;
-  onComplete?: (stats: { mistakes: number; timeSeconds: number }) => void;
-  onMistake?: () => void;
-  isGameRunning: boolean;
-};
+  notes: Notes;
+  selected: [number, number] | null;
+  pencilMode: boolean;
+  setPencilMode: (v: boolean) => void;
+  handleCellPress: (r: number, c: number) => void;
+  handleNumberInput: (n: number) => void;
+  isGiven: (r: number, c: number) => boolean;
+}
 
-export default function SudokuBoard({ 
-  initial, 
-  solution, 
-  onComplete, 
-  onMistake,
-  isGameRunning 
-}: Props) {
-  const { 
-    completed, 
-    elapsed, 
-    baseMs, 
-    lastStartAt, 
-    setCompleted 
-  } = useGameStore();
-
-  const [grid, setGrid] = useState<Grid>(() => initial.map((r) => r.slice()));
-  const [selected, setSelected] = useState<[number, number] | null>(null);
-  const [mistakeCount, setMistakeCount] = useState(0);
-  const [pencilMode, setPencilMode] = useState(false);
-  const [notes, setNotes] = useState<Set<number>[][]>(() =>
-    Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set<number>()))
-  );
-
-  const isGiven = useMemo(() => {
-    const given = new Set<string>();
-    initial.forEach((row, r) =>
-      row.forEach((v, c) => {
-        if (v !== 0) given.add(`${r},${c}`);
-      })
-    );
-    return (r: number, c: number) => given.has(`${r},${c}`);
-  }, [initial]);
-
-  // Reset grid when initial changes (new game)
-  useEffect(() => {
-    setGrid(initial.map((r) => r.slice()));
-    setSelected(null);
-    setMistakeCount(0);
-    setNotes(Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set<number>())));
-  }, [initial]);
-
-  // Check for completion
-  useEffect(() => {
-    const done = grid.every((r, i) => r.every((v, j) => v === solution[i][j]));
-    if (done && !completed) {
-      const now = Date.now();
-      const ms = baseMs + (isGameRunning && lastStartAt ? now - lastStartAt : 0);
-      const timeSeconds = Math.round(ms / 1000);
-      onComplete?.({ mistakes: mistakeCount, timeSeconds });
-      setCompleted(true);
-    }
-  }, [grid, solution, baseMs, isGameRunning, lastStartAt, onComplete, completed, mistakeCount, setCompleted]);
-
-  const handleCellPress = (r: number, c: number) => {
-    if (!isGameRunning) return;
-    setSelected([r, c]);
-  };
-
-  const handleNumberInput = (val: number) => {
-    if (!isGameRunning || !selected) return;
-    
-    const [r, c] = selected;
-    if (isGiven(r, c)) return;
-
-    if (pencilMode && val !== 0) {
-      // Toggle note
-      setNotes((old) => {
-        const n = old.map((row) => row.map((s) => new Set(s)));
-        if (n[r][c].has(val)) {
-          n[r][c].delete(val);
-        } else {
-          n[r][c].add(val);
-        }
-        return n;
-      });
-      return;
-    }
-
-    setGrid((g) => {
-      const next = g.map((row) => row.slice());
-      const prevVal = g[r][c];
-      
-      if (val === 0) {
-        next[r][c] = 0;
-      } else {
-        next[r][c] = val;
-        
-        // Check if it's a mistake
-        if (val !== solution[r][c] && prevVal !== val) {
-          setMistakeCount((count) => count + 1);
-          onMistake?.();
-        }
-        
-        // Clear notes when value placed
-        setNotes((old) => {
-          const n = old.map((row) => row.map((s) => new Set(s)));
-          n[r][c].clear();
-          return n;
-        });
-      }
-      
-      return next;
-    });
-  };
-
+function MdsSudokuBoard({ grid, solution, notes, selected, pencilMode, setPencilMode, handleCellPress, handleNumberInput, isGiven }: SudokuBoardProps) {
+  // Helper to get cell style
   const getCellStyle = (r: number, c: number) => {
     const isSelected = selected && selected[0] === r && selected[1] === c;
     const isGivenCell = isGiven(r, c);
     const isError = grid[r][c] !== 0 && grid[r][c] !== solution[r][c];
-    
     return [
       styles.cell,
       isSelected && styles.selectedCell,
       isGivenCell && styles.givenCell,
       isError && styles.errorCell,
-      // Border styles for 3x3 box separation
       (r + 1) % 3 === 0 && r !== 8 && styles.bottomBorder,
       (c + 1) % 3 === 0 && c !== 8 && styles.rightBorder,
     ];
@@ -146,7 +42,6 @@ export default function SudokuBoard({
   const getCellTextStyle = (r: number, c: number) => {
     const isGivenCell = isGiven(r, c);
     const isError = grid[r][c] !== 0 && grid[r][c] !== solution[r][c];
-    
     return [
       styles.cellText,
       isGivenCell && styles.givenText,
@@ -154,10 +49,13 @@ export default function SudokuBoard({
     ];
   };
 
-  const renderCell = (r: number, c: number) => {
+  interface MemoCellProps {
+    r: number;
+    c: number;
+  }
+  const MemoCell = React.memo(({ r, c }: MemoCellProps) => {
     const value = grid[r][c];
     const cellNotes = notes[r][c];
-    
     return (
       <TouchableOpacity
         key={`${r}-${c}`}
@@ -184,7 +82,7 @@ export default function SudokuBoard({
         ) : null}
       </TouchableOpacity>
     );
-  };
+  });
 
   return (
     <View style={styles.container}>
@@ -192,7 +90,9 @@ export default function SudokuBoard({
       <View style={styles.board}>
         {Array.from({ length: 9 }, (_, r) => (
           <View key={r} style={styles.row}>
-            {Array.from({ length: 9 }, (_, c) => renderCell(r, c))}
+            {Array.from({ length: 9 }, (_, c) => (
+              <MemoCell key={`${r}-${c}`} r={r} c={c} />
+            ))}
           </View>
         ))}
       </View>
@@ -223,7 +123,6 @@ export default function SudokuBoard({
               </Text>
             </TouchableOpacity>
           ))}
-          
           {/* Clear button */}
           <TouchableOpacity
             style={[styles.numberButton, styles.clearButton]}
@@ -239,6 +138,8 @@ export default function SudokuBoard({
     </View>
   );
 }
+
+export default React.memo(MdsSudokuBoard);
 
 const styles = StyleSheet.create({
   container: {
@@ -364,3 +265,4 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
   },
 });
+
