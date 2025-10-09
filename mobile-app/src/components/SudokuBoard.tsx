@@ -23,7 +23,7 @@ interface SudokuBoardProps {
   isGiven: (r: number, c: number) => boolean;
 }
 
-function SudokuBoard({ grid, solution, notes, selected, pencilMode, setPencilMode, handleCellPress, handleNumberInput, isGiven }: SudokuBoardProps) {
+function MdsSudokuBoard({ grid, solution, notes, selected, pencilMode, setPencilMode, handleCellPress, handleNumberInput, isGiven }: SudokuBoardProps) {
   // Helper to get cell style
   const getCellStyle = (r: number, c: number) => {
     const isSelected = selected && selected[0] === r && selected[1] === c;
@@ -139,7 +139,7 @@ function SudokuBoard({ grid, solution, notes, selected, pencilMode, setPencilMod
   );
 }
 
-export default React.memo(SudokuBoard);
+export default React.memo(MdsSudokuBoard);
 
 const styles = StyleSheet.create({
   container: {

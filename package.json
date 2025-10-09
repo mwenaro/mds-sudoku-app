@@ -1,0 +1,17 @@
+{
+  "name": "mds-sudoku-monorepo",
+  "private": true,
+  "workspaces": [
+    "web-app",
+    "mobile-app"
+  ],
+  "scripts": {
+    "install:all": "npm install --workspaces --if-present",
+    "dev:web": "npm --workspace web-app run dev",
+    "dev:mobile": "npm --workspace mobile-app run start",
+    "build:web": "npm --workspace web-app run build",
+    "build:mobile": "npm --workspace mobile-app run build",
+    "lint:web": "npm --workspace web-app run lint",
+    "lint:mobile": "npm --workspace mobile-app run lint"
+  }
+}
