@@ -1,7 +1,7 @@
 {
   "expo": {
-  "name": "mds sudoku",
-  "slug": "mds-sudoku",
+    "name": "mds sudoku",
+    "slug": "mds-sudoku",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -21,10 +21,16 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.mwero.mdssudoku"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "8d378255-4acb-4b51-843b-1408adb28496"
+      }
     }
   }
 }

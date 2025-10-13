@@ -14,6 +14,7 @@
     "@types/react": "~19.1.10",
     "@types/react-native": "^0.72.8",
     "expo": "~54.0.12",
+    "expo-dev-client": "~6.0.15",
     "expo-linear-gradient": "^15.0.7",
     "expo-status-bar": "~3.0.8",
     "react": "19.1.0",

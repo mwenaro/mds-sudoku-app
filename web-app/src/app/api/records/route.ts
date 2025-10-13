@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createGame, getGames } from '@/lib/db';
-import { Game as GameModel } from '@/lib/db';
+// import { Game as GameModel } from '@/lib/db';
 import { GameType } from '@/lib/types';
 import connectDB from '@/lib/db';
 
@@ -48,8 +48,8 @@ export async function GET() {
     }));
 
     return new Response(JSON.stringify({ ok: true, data }), { status: 200 });
-  } catch (error:any) {
-    console.log("Error is ",error.message);
+  } catch (error:unknown  ) {
+    console.log("Error is ",error);
     return new Response(JSON.stringify({ error: 'Failed to fetch records' }), { status: 500 });
   }
 }

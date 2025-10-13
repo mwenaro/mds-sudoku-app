@@ -2,30 +2,34 @@
 
 import * as React from "react";
 
-type MotionProps = React.HTMLAttributes<any> & {
-  initial?: any;
-  animate?: any;
-  transition?: any;
-  whileTap?: any;
+type WhileTapProps = {
+  scale?: number;
+};
+
+type MotionProps = React.HTMLAttributes<HTMLElement> & {
+  initial?: Record<string, unknown>;
+  animate?: Record<string, unknown>;
+  transition?: Record<string, unknown>;
+  whileTap?: WhileTapProps;
 };
 
 function withWhileTap<Tag extends keyof HTMLElementTagNameMap>(Tag: Tag) {
   return function MotionEl(props: MotionProps) {
-    const { whileTap, style, onMouseDown, onMouseUp, ...rest } = props as any;
+    const { whileTap, style, onMouseDown, onMouseUp, ...rest } = props;
     const [pressed, setPressed] = React.useState(false);
     const scale = typeof whileTap?.scale === "number" ? whileTap.scale : 1;
-    const handleDown: React.MouseEventHandler = (e) => {
+    const handleDown: React.MouseEventHandler<HTMLElementTagNameMap[Tag]> = (e) => {
       setPressed(true);
-      onMouseDown?.(e);
+      onMouseDown?.(e as React.MouseEvent<HTMLElement>);
     };
-    const handleUp: React.MouseEventHandler = (e) => {
+    const handleUp: React.MouseEventHandler<HTMLElementTagNameMap[Tag]> = (e) => {
       setPressed(false);
-      onMouseUp?.(e);
+      onMouseUp?.(e as React.MouseEvent<HTMLElement>);
     };
     return React.createElement(
-      Tag as any,
+      Tag,
       {
-        ...(rest as any),
+        ...rest,
         onMouseDown: handleDown,
         onMouseUp: handleUp,
         style: {
@@ -33,7 +37,7 @@ function withWhileTap<Tag extends keyof HTMLElementTagNameMap>(Tag: Tag) {
           transform: pressed ? `scale(${scale})` : undefined,
           transition: "transform 120ms ease",
         },
-      }
+      } as React.HTMLAttributes<HTMLElementTagNameMap[Tag]>
     );
   };
 }

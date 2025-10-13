@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, Fragment } from "react";
 import { motion } from "@/lib/motion";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
-import type { Grid, getTip as getTipFn } from "@/utils/sudoku";
+import type { Grid } from "@/utils/sudoku";
 import { getTip as computeTip } from "@/utils/sudoku";
 import { useGameStore } from "@/store/gameStore";
 

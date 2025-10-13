@@ -10,10 +10,6 @@ function clone(grid: Grid): Grid {
   return grid.map((r) => r.slice());
 }
 
-function boxIndex(r: number, c: number): [number, number] {
-  return [Math.floor(r / BOX), Math.floor(c / BOX)];
-}
-
 export function isValid(grid: Grid, r: number, c: number, val: number): boolean {
   if (val < 1 || val > 9) return false;
   for (let i = 0; i < SIZE; i++) {
@@ -315,7 +311,7 @@ export function findNakedPair(grid: Grid): Tip | null {
 
 export function findHiddenPair(grid: Grid): Tip | null {
   // simplified: check row for two numbers appearing only in same two cells
-  function scanGroup(cells: [number, number][], label: string, meta: any): Tip | null {
+  function scanGroup(cells: [number, number][], label: string, meta: { row?: number; col?: number; box?: [number, number] }): Tip | null {
     const canMap: Record<string, [number, number][]> = {};
     for (const [r, c] of cells) {
       if (grid[r][c] !== 0) continue;
@@ -477,7 +473,7 @@ export function getTip(grid: Grid): Tip | null {
   );
 }
 
-export default {
+const sudokuUtils = {
   isValid,
   solve,
   generateSolved,
@@ -490,3 +486,5 @@ export default {
   findXWing,
   getTip,
 };
+
+export default sudokuUtils;
